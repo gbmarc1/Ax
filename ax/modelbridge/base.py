@@ -110,6 +110,7 @@ class ModelBridge(ABC):
             self._arms_by_signature = experiment.arms_by_signature
 
         observations = (
+            # pyre-fixme[6]: Expected `Experiment` for 1st param but got `None`.
             observations_from_data(experiment, data)
             if experiment is not None and data is not None
             else []
@@ -233,6 +234,7 @@ class ModelBridge(ABC):
         experiment: Optional[Experiment],
         status_quo_name: Optional[str],
         status_quo_features: Optional[ObservationFeatures],
+        # plot.help_rel (model, ) <- trial_index that we'll pass to the status_quo_index
     ) -> None:
         """Set model status quo.
 
@@ -254,6 +256,7 @@ class ModelBridge(ABC):
             and experiment is not None
             and experiment.status_quo is not None
         ):
+            # pyre-fixme[16]: `Optional` has no attribute `name`.
             status_quo_name = experiment.status_quo.name
 
         if status_quo_name is not None:
@@ -276,11 +279,15 @@ class ModelBridge(ABC):
                 self._status_quo = sq_obs[0]
 
         elif status_quo_features is not None:
+            # TODO(T52873772): Check which field from the status_quo_features to
+            # compare with the training_data to select the status_quo.
             sq_obs = [
                 obs
                 for obs in self._training_data
-                if obs.features == status_quo_features
+                if (obs.features.parameters == status_quo_features.parameters)
+                and (obs.features.trial_index == status_quo_features.trial_index)
             ]
+
             if len(sq_obs) == 0:
                 logger.warning(
                     f"Status quo features {status_quo_features} not found in data."
@@ -477,6 +484,7 @@ class ModelBridge(ABC):
 
         if optimization_config is None:
             optimization_config = (
+                # pyre-fixme[16]: `Optional` has no attribute `clone`.
                 self._optimization_config.clone()
                 if self._optimization_config is not None
                 else None

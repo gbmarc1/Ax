@@ -11,7 +11,6 @@ from ax.core.experiment import Experiment
 from ax.core.generator_run import GeneratorRun
 from ax.modelbridge.base import ModelBridge
 from ax.modelbridge.registry import Models
-from ax.utils.common.equality import equality_typechecker
 from ax.utils.common.kwargs import consolidate_kwargs, get_function_argument_names
 from ax.utils.common.logger import get_logger
 from ax.utils.common.typeutils import checked_cast, not_none
@@ -126,11 +125,13 @@ class GenerationStrategy(Base):
         """Name of this generation strategy. Defaults to a combination of model
         names provided in generation steps."""
         if self._name:
+            # pyre-fixme[7]: Expected `str` but got `Optional[str]`.
             return self._name
 
         # Model can be defined as member of Models enum or as a factory function,
         # so we use Models member (str) value if former and function name if latter.
         factory_names = (
+            # pyre-fixme[16]: `Union` has no attribute `value`.
             checked_cast(str, step.model.value)
             if isinstance(step.model, Models)
             else step.model.__name__  # pyre-ignore[16]
@@ -223,6 +224,7 @@ class GenerationStrategy(Base):
             self._change_model(experiment=experiment, data=all_data)
         elif new_data is not None:
             # We're sticking with the curr. model, but should update with new data.
+            # pyre-fixme[16]: `Optional` has no attribute `update`.
             self._model.update(experiment=experiment, data=new_data)
 
         kwargs = consolidate_kwargs(
@@ -242,36 +244,13 @@ class GenerationStrategy(Base):
         """Copy this generation strategy without it's state."""
         return GenerationStrategy(name=self.name, steps=self._steps)
 
-    @equality_typechecker
-    def __eq__(self, other: "GenerationStrategy") -> bool:
-        """Need to override the default __eq__ method, because the default
-        checks equality of memory addresses of the objects.
-        """
-        data_equals = (
-            self._data.df.empty and other._data.df.empty
-        ) or self._data.df.sort_index(axis=1).equals(other._data.df.sort_index(axis=1))
-        experiment_equals = (
-            self._experiment is None and other._experiment is None
-        ) or (self._experiment.name == other._experiment.name)
-        return (
-            self._name == other._name
-            and self._db_id == other._db_id
-            and self._steps == other._steps
-            and self._uses_registered_models == other._uses_registered_models
-            and self._generated == other._generated
-            and self._observed == other._observed
-            and data_equals
-            and self._curr == other._curr
-            and self._generator_runs == other._generator_runs
-            and experiment_equals
-        )
-
     def __repr__(self) -> str:
         """String representation of this generation strategy."""
         repr = f"GenerationStrategy(name='{self.name}', steps=["
         for step in self._steps:
             num_arms = f"{step.num_arms}" if step.num_arms != -1 else "subsequent"
             if isinstance(step.model, Models):
+                # pyre-fixme[16]: `Union` has no attribute `value`.
                 repr += f"{step.model.value} for {num_arms} arms, "
         repr = repr[:-2]
         repr += f"], generated {len(self._generated)} arm(s))"
@@ -343,7 +322,11 @@ class GenerationStrategy(Base):
         if self._experiment is None:  # pragma: no cover
             raise ValueError("No experiment was set on this generation strategy.")
         self._model = get_model_from_generator_run(
-            generator_run=generator_run, experiment=self._experiment, data=self._data
+            generator_run=generator_run,
+            # pyre-fixme[6]: Expected `Experiment` for 2nd param but got
+            #  `Optional[Experiment]`.
+            experiment=self._experiment,
+            data=self._data,
         )
 
     def _change_model(self, experiment: Experiment, data: Data, **kwargs: Any) -> None:
@@ -399,6 +382,7 @@ class GenerationStrategy(Base):
         """
         if (
             self._experiment is not None
+            # pyre-fixme[16]: `Optional` has no attribute `_name`.
             and experiment._name is not self._experiment._name
         ):  # pragma: no cover
             logger.info(
